@@ -5,6 +5,8 @@ description: "Run fable-mode execution discipline on Claude Sonnet. Spawns a Son
 
 # Fable Mode — Sonnet
 
+Family version: v6 (2026-10-10).
+
 Run the fable-mode discipline on Claude Sonnet via a subagent. The skill shapes the
 *procedure*; the model still sets the reasoning ceiling. Sonnet sits between Haiku and
 Opus — strong general reasoning at lower cost. Pick this as the balanced default for
@@ -27,21 +29,33 @@ think the loop is overkill for what was asked, run it anyway and say so afterwar
 **Autonomous trigger only:** if a task has one obvious correct approach, fits in a
 single pass, and the user did not ask for this skill, do it directly.
 
+**Spawn authorization** (same rule as fable-mode): a slash command or the skill named
+("fable-sonnet", "fable on sonnet") authorizes spawning. A wording-only or autonomous
+trigger does not: run the loop inline on the current model, say the Sonnet pin was
+skipped and that a slash command gets the pinned run, and run double-check in its
+self-check mode. Usage limit: same as fable-mode — at the user's reported threshold,
+check in first.
+
 ## How to run it
 
-1. Confirm the runtime exposes the Agent tool. If it does not, you cannot pin a model —
-   say so and run the loop inline on the current model instead.
+1. Confirm the runtime exposes the Agent tool and spawning is authorized (Invocation
+   gate). If either fails, you cannot pin a model — say so and run the loop inline on
+   the current model instead.
 2. Spawn an Agent with `model: "sonnet"` and `subagent_type: "general-purpose"`.
 3. Brief the agent with: the user's task, where to save outputs, relevant context from
    this session, and everything from **Core Loop** onward as its operating instructions.
-   The subagent does not inherit this session's skills, so the operational rules below
-   are inlined in full — pass them verbatim, do not summarize them into a reference.
-4. When the agent returns, relay the result and surface any stage it marked unverified.
+   Inline the operational rules below in full — pass them verbatim, do not summarize
+   them into a reference. Whether a subagent can load skills itself varies by surface;
+   the inline copy is shorter than a skill load and works everywhere.
+4. Wait until every spawned agent has returned — spawns may run in the background even
+   when foreground is requested — then relay the result and surface any stage it marked
+   unverified.
 5. For high-stakes deliverables, spawn a fresh verifier agent briefed only with the spec
    and the artifact — not the worker's reasoning — and have it re-run the named checks
    cold. A Haiku verifier is usually enough; the checks are mechanical by design.
-6. **Mandatory delivery gate:** before presenting the result to the user, invoke the
-   **double-check** skill on the finished deliverable. It runs the checker panel
+6. **Mandatory delivery gate — once, on this thread, never inside the worker:** before
+   presenting the result to the user, invoke the **double-check** skill on the finished
+   deliverable. It runs the checker panel
    (claims, requirements, synthesis seam), fixes any FAIL, and attaches a verification
    summary.
 
@@ -56,7 +70,8 @@ single pass, and the user did not ask for this skill, do it directly.
    full panel runs. Emit it honestly. Do not skip the gate; the user relies on it
    instead of re-checking the work themselves.
 
-For independent sub-parts, spawn multiple Sonnet agents concurrently and merge outputs.
+For independent sub-parts, spawn multiple Sonnet agents concurrently and merge outputs
+only after every one has returned.
 Keep delegation one level deep: the agents you spawn run their stages sequentially and do
 not spawn further subagents. Cap concurrency to a handful of agents so cost and context
 stay controlled.
@@ -122,8 +137,8 @@ Each is an instance of step 3 — the failable check that fits the work:
 
 ## Operational rules (pass these to the subagent verbatim)
 
-These mirror the execution-guardrails skill, inlined because the subagent cannot see
-that skill.
+These mirror the execution-guardrails skill, inlined so every worker has them whether or
+not it can load skills.
 
 **Verify before flag.** Before flagging any problem — verify it actually exists. Grep,
 diff, run it, or check the source directly. Never report a problem that hasn't been

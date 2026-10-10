@@ -1,9 +1,11 @@
 ---
 name: fable-mode
-description: "Enforces staged execution discipline on large tasks: a written stage plan, parallel delegation where the runtime supports it, a failable verification check at each stage, and a skeptical self-review before delivery. Trigger when the user explicitly asks OR when the task objectively spans multiple files, sources, or sessions."
+description: "Enforces staged execution discipline on large tasks: a written stage plan, parallel delegation where the runtime supports it, a failable verification check at each stage, and a skeptical self-review before delivery. Trigger when the user explicitly asks OR when the task objectively spans multiple files, sources, or sessions. Do NOT trigger on ordinary multi-step requests that a direct attempt handles fine."
 ---
 
 # Fable Mode
+
+Family version: v6 (2026-10-10).
 
 This skill encodes execution discipline for complex work: decompose before acting,
 delegate where the runtime allows, verify with checks that can fail, self-critique
@@ -25,6 +27,20 @@ invocation IS the trigger; the cost call is theirs, not yours.
 The "when NOT to use this" judgment below governs only autonomous triggering — this
 skill deciding on its own to fire. It never overrides an explicit request. If you think
 the loop is overkill for what was asked, run it anyway and say so afterward.
+
+**Spawn authorization.** Some hosts allow subagents only when the user asks for them, and
+do not count words like "thorough" as asking. In this skill family, spawning — stage
+workers, a fresh verifier, double-check's checker panel — is authorized only when the
+user invoked this skill or a sibling (fable-opus, fable-sonnet, double-check) by slash
+command or by name ("fable mode", "fable on opus", "double check this"). A wording-only
+trigger ("deep work mode", "be systematic", "thorough") or an autonomous trigger does not
+authorize spawning: run the loop inline on this thread and run double-check in its
+self-check mode. Say which mode ran. If the host refuses a spawn anyway, do that work
+inline and say so.
+
+**Usage limit.** When the user reports usage at their threshold (default: weekly 50% or
+session 75%), check in with them before continuing. Unless they say otherwise, finish
+inline with double-check in self-check mode.
 
 ## When NOT to use this (autonomous trigger only)
 
@@ -85,14 +101,19 @@ Stage 2: [Name] → [Expected output]
 ...
 ```
 
-**2. Delegate independent work (if the runtime supports it)**
-First check whether subagent/Agent tooling exists in the current runtime. If it does
-not (for example, a plain chat surface with no Agent tool), run the stages sequentially
-and proceed to step 3.
+**2. Delegate independent work (if the runtime supports it and spawning is authorized)**
+First check two things: whether subagent/Agent tooling exists in the current runtime,
+and whether the Invocation gate authorizes spawning. If either is missing (for example,
+a plain chat surface with no Agent tool, or a wording-only trigger), run the stages
+sequentially and proceed to step 3.
 
-If subagent tooling is available and stage N and stage M don't depend on each other,
-spawn them concurrently. Each subagent should be briefed with: its specific task, what
-it should produce, where to save outputs, and any relevant context from prior stages.
+If both hold and stage N and stage M don't depend on each other, spawn them
+concurrently. Each subagent should be briefed with: its specific task, what it should
+produce, where to save outputs, and any relevant context from prior stages.
+
+**Wait for every result.** Spawns may run in the background even when foreground is
+requested (observed in the cloud runtime, 2026-10-10). Do not build on, merge, verify,
+or deliver a worker's output until every spawned worker has returned.
 
 **Tier routing.** When the Agent tool exposes a `model` parameter, match the worker
 tier to the stage's difficulty, not to habit: Opus for stage work needing strong
@@ -105,9 +126,12 @@ Good delegation: "research X while I do Y", "process these 3 files", "verify thi
 independently". Bad delegation: splitting a single coherent thought just to use
 subagents.
 
-Keep delegation one level deep by default: a spawned subagent runs its stages
-sequentially rather than spawning its own subagents. Nesting multiplies cost and scatters
-context — allow a second level only when a sub-part clearly needs its own fan-out.
+Keep delegation one level deep: a spawned subagent runs its stages sequentially and
+spawns nothing. Nesting multiplies cost and scatters context, and subagents may have no
+Agent tool of their own (cloud runtime, 2026-10-10: Haiku and Sonnet general-purpose
+subagents had none) — so plan all fan-out from the main thread. Allow a second level
+only when a sub-part clearly needs its own fan-out and the subagent actually has an
+Agent tool.
 
 **3. Verify with a check that can fail**
 Each stage must define a pass condition that an external artifact satisfies. Acceptable
@@ -133,10 +157,11 @@ turns up nothing, say so plainly — do not manufacture a weakness to satisfy th
 Step 3 is the check that can fail. Step 4 is the judgment call about what remains weak
 after the check passes.
 
-For high-stakes deliverables, and where the runtime supports subagents, spawn a fresh
-verifier agent briefed only with the spec and the artifact — not your reasoning — and
-have it run the checks cold. Fresh eyes cannot inherit your blind spots. A Haiku or
-Sonnet verifier is usually enough; the checks are mechanical by design.
+For high-stakes deliverables, where the runtime supports subagents and spawning is
+authorized, spawn a fresh verifier agent briefed only with the spec and the artifact —
+not your reasoning — and have it run the checks cold. Fresh eyes cannot inherit your
+blind spots. A Haiku or Sonnet verifier is usually enough; the checks are mechanical by
+design.
 
 Verify-before-flag and warning batching rules for this step live in the
 execution-guardrails skill and are mandatory.
@@ -145,9 +170,10 @@ execution-guardrails skill and are mandatory.
 After step 4 and before presenting anything to the user, invoke the **double-check**
 skill on the finished deliverable. It runs a panel of fresh checker agents
 (Haiku/Sonnet, Opus on disagreement) against the final artifact — claims, requirements,
-and the synthesis seam — fixes any FAIL, and attaches a verification summary. On a
-surface without the Agent tool it degrades to a cold self-check and says so. This gate
-is not optional: the user relies on it instead of double-checking the work themselves.
+and the synthesis seam — fixes any FAIL, and attaches a verification summary. Without
+the Agent tool, or without spawn authorization, it runs its self-check mode and says so.
+Run it once, on the main thread — never inside a worker. This gate is not optional: the
+user relies on it instead of double-checking the work themselves.
 Do not run it twice on the same deliverable (double-check itself forbids recursion).
 
 Close your report to double-check with a literal line:

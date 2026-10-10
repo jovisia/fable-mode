@@ -5,6 +5,8 @@ description: "Automatic final verification pass on completed deliverables. Runs 
 
 # Double Check
 
+Family version: v6 (2026-10-10).
+
 Automatic verification pass on a *finished* deliverable. The user should never have to
 re-check work themselves — this skill is that re-check.
 
@@ -32,6 +34,13 @@ of your argument). Both live here — there is no companion skill to load.
    line at all → run the full panel. Absence of the line is never evidence that the
    check happened.
 2. **On request**: "double check this", "verify this", "make sure this is right".
+
+**Panel or self-check.** Some hosts allow subagents only when the user asks for them.
+Run the checker panel only when this skill was invoked by slash command or by name
+("double check this"), or when the fable run that called it was spawn-authorized (see
+fable-mode's Invocation gate). Otherwise — "verify this", "make sure this is right", a
+fable run without spawn authorization, or the user has reported their usage threshold
+(check in first) — use self-check mode (step 2) and say so.
 
 ## Skip conditions
 
@@ -80,7 +89,7 @@ and labeled as such in the deliverable.
 
 ### 2. Detect the runtime, pick the mode
 
-**Agent runtime (Claude Code, Cowork — Agent tool available): run the checker panel.**
+**Panel mode (Agent tool available AND spawning authorized): run the checker panel.**
 
 Spawn fresh checker agents using the brief template below. They receive claims,
 requirements, checks, constraints (READ-ONLY — checkers never modify anything), and the
@@ -88,8 +97,9 @@ output format. They never receive your reasoning, your confidence, or hints abou
 items you suspect.
 
 Tier routing — match the tier to the check, not to the importance of the deliverable:
-- **Haiku checkers (parallel, one per bundle of mechanical checks):** numbers re-added,
-  files opened and read back, links/paths exist, commands re-run, counts reconciled.
+- **One Haiku checker (all mechanical checks in one bundle):** numbers re-added, files
+  opened and read back, links/paths exist, commands re-run, counts reconciled. Add a
+  second Haiku only when the mechanical checks will not fit one brief, and say why.
 - **One Sonnet checker:** requirements coverage (every R satisfied by the artifact
   itself, not by the work log), internal consistency, logic of any argument the
   deliverable makes.
@@ -97,9 +107,14 @@ Tier routing — match the tier to the check, not to the importance of the deliv
   REFUTED verdict is itself disputed after the fix. Adjudicates; does not re-check
   everything.
 
-**Chat runtime (no Agent tool): degraded single-pass mode.**
+**Collect every verdict.** Spawns may run in the background even when foreground is
+requested (observed in the cloud runtime, 2026-10-10). Do not fix, synthesize, or
+deliver until every checker has returned; never act on a partial panel.
 
-Say plainly that the full checker panel isn't available on this surface. Then run the
+**Self-check mode (no Agent tool, or spawning not authorized): degraded single-pass mode.**
+
+Say plainly that the checker panel did not run and why (no Agent tool on this surface,
+or spawning not authorized). Then run the
 checks yourself, cold: work only from the claims/requirements lists and the artifact —
 deliberately not from memory of how you produced it. Re-derive each number, re-read
 each file or source, re-test each requirement against the artifact. Same ternary
@@ -168,10 +183,17 @@ intermediate outputs. Two seam-specific hunts:
 
 ### 5. Fix, then re-check
 
-Any FAIL: fix the deliverable, then re-run **that specific check** (fresh checker in
-agent runtime; cold re-derivation in chat). If the fix invalidates upstream content,
-fix and re-check that too. Deliver only when every item is PASS or explicitly
-UNVERIFIABLE. Never deliver with an unresolved FAIL footnoted.
+Any FAIL: fix the deliverable, then re-run **that specific check**. If the fix
+invalidates upstream content, fix and re-check that too.
+
+**One re-check round.** In panel mode, batch every fixed item into ONE fresh re-checker
+brief (Haiku, unless an item needs Sonnet's logic check). If anything fails that round,
+fix it and verify it by cold self-check — re-derive from the artifact, no new spawn —
+and mark those items "self-checked" in the summary. No further spawn rounds. In
+self-check mode, every re-check is a cold re-derivation.
+
+Deliver only when every item is PASS or explicitly UNVERIFIABLE. Never deliver with an
+unresolved FAIL footnoted.
 
 ### 6. Report
 
@@ -180,7 +202,7 @@ Deliver with a short verification summary:
 ```
 Double-check: N claims + M requirements.
 PASS: n. FIXED after FAIL: n (list what was wrong, one line each). UNVERIFIABLE: n (named).
-Checkers: [e.g. 2× Haiku, 1× Sonnet | self-check, no agents on this surface]
+Checkers: [e.g. 1× Haiku, 1× Sonnet, 1 re-check round | self-check — no Agent tool / spawning not authorized]
 ```
 
 Name what got refuted and fixed — that is the evidence the check was real. A summary
@@ -194,6 +216,8 @@ plainly too — own the specific error and move on, no extended apology.
 - Verify-before-flag applies: a checker's FAIL must cite the observed evidence, not
   the absence of confirmation. Absence of evidence is not a finding.
 - Checkers are READ-ONLY. Only the main session fixes things.
-- Budget: default panel is small (2–4 Haiku bundles + 1 Sonnet). Escalate to Opus only
-  on disagreement. Match tier to the check, not to the importance of the deliverable —
-  mechanical checks stay cheap.
+- Budget: default panel is 1 Haiku + 1 Sonnet, plus at most one re-check round (cut
+  from 2–4 Haiku + 1 Sonnet on 2026-10-10, after a 2+1 panel cost ~580K subagent
+  tokens; coverage at 1+1 not yet measured). Escalate to Opus only on disagreement.
+  Match tier to the check, not to the importance of the deliverable — mechanical
+  checks stay cheap.

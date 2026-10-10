@@ -5,6 +5,8 @@ description: "Always-on operational guardrails, model-independent. Apply on EVER
 
 # Execution Guardrails
 
+Family version: v6 (2026-10-10).
+
 Three rules extracted from fable-mode's operational section so they apply everywhere,
 not only inside the staged loop. A frontier model doesn't need a stage map for a simple
 task, but it still needs these — they encode the user's preferences, and no model ships
@@ -64,4 +66,5 @@ fable-mode's staged loop is optional and gated on task size. These guardrails ar
 optional and not gated. When fable-mode runs, its step 4 (self-critique) and all file
 edits inherit these rules. When fable-mode doesn't run, these rules apply anyway. The
 per-model runners — fable-opus and fable-sonnet — inline these rules verbatim into every
-subagent briefing, because spawned agents cannot see this skill.
+subagent briefing: whether a spawned agent can load this skill varies by surface, and the
+inline copy is shorter than a skill load.
