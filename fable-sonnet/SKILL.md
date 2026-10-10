@@ -1,16 +1,16 @@
 ---
 name: fable-sonnet
-description: "Run fable-mode execution discipline on Claude Sonnet. Spawns a Sonnet subagent that follows the staged loop — stage plan, parallel delegation, a failable verification check at each stage, and a skeptical self-review before delivery. Trigger when the user explicitly asks for thorough/systematic/\"deep work\" handling on Sonnet."
+description: "Run fable-mode execution discipline on Claude Sonnet. When invoked by slash command or by name, spawns a Sonnet subagent that follows the staged loop — stage plan, parallel delegation, a failable verification check at each stage, and a skeptical self-review before delivery; a wording-only request runs the loop inline on the current model. Trigger when the user explicitly asks for thorough/systematic/\"deep work\" handling on Sonnet."
 ---
 
 # Fable Mode — Sonnet
 
 Family version: v6 (2026-10-10).
 
-Run the fable-mode discipline on Claude Sonnet via a subagent. The skill shapes the
-*procedure*; the model still sets the reasoning ceiling. Sonnet sits between Haiku and
-Opus — strong general reasoning at lower cost. Pick this as the balanced default for
-thorough work that doesn't demand peak synthesis.
+Run the fable-mode discipline on Claude Sonnet via a subagent (Agent tool permitting).
+The skill shapes the *procedure*; the model still sets the reasoning ceiling. Sonnet
+sits between Haiku and Opus — strong general reasoning at lower cost. Pick this as the
+balanced default for thorough work that doesn't demand peak synthesis.
 
 Sonnet's characteristic gap: it plans decently but reliably skips step 3 — the check
 that can fail — and substitutes "looks right" review. The briefing below enforces step 3
@@ -31,10 +31,10 @@ single pass, and the user did not ask for this skill, do it directly.
 
 **Spawn authorization** (same rule as fable-mode): a slash command or the skill named
 ("fable-sonnet", "fable on sonnet") authorizes spawning. A wording-only or autonomous
-trigger does not: run the loop inline on the current model, say the Sonnet pin was
-skipped and that a slash command gets the pinned run, and run double-check in its
-self-check mode. Usage limit: same as fable-mode — at the user's reported threshold,
-check in first.
+trigger does not: run the loop inline on the current model, run double-check in its
+self-check mode, and say so. If this thread is not on Sonnet, also say the Sonnet pin
+was skipped and that a slash command requests the pinned run. Usage limit: same as
+fable-mode — when the user reports usage at their threshold, check in first.
 
 ## How to run it
 
@@ -45,19 +45,23 @@ check in first.
 3. Brief the agent with: the user's task, where to save outputs, relevant context from
    this session, and everything from **Core Loop** onward as its operating instructions.
    Inline the operational rules below in full — pass them verbatim, do not summarize
-   them into a reference. Whether a subagent can load skills itself varies by surface;
-   the inline copy is shorter than a skill load and works everywhere.
-4. Wait until every spawned agent has returned — spawns may run in the background even
-   when foreground is requested — then relay the result and surface any stage it marked
-   unverified.
-5. For high-stakes deliverables, spawn a fresh verifier agent briefed only with the spec
-   and the artifact — not the worker's reasoning — and have it re-run the named checks
-   cold. A Haiku verifier is usually enough; the checks are mechanical by design.
+   them into a reference. Cloud subagents could load skills (2026-10-10); other
+   surfaces are unchecked. The inline copy is shorter than a skill load and works
+   either way.
+4. Wait until every spawned agent — worker or verifier — has returned before you merge,
+   fix, or relay; spawns may run in the background even when foreground is requested.
+   If a spawn errors or fails to return, say which and do its part inline. Then relay
+   the result and surface any stage it marked unverified.
+5. For high-stakes deliverables, if spawning is authorized, spawn a fresh verifier agent
+   briefed only with the spec and the artifact — not the worker's reasoning — and have it
+   re-run the named checks cold. A Haiku verifier is usually enough; the checks are
+   mechanical by design. Wait for its verdict before step 6; the FINAL-COLD-CHECK line
+   may say `yes` only if it checked the version you deliver.
 6. **Mandatory delivery gate — once, on this thread, never inside the worker:** before
    presenting the result to the user, invoke the **double-check** skill on the finished
-   deliverable. It runs the checker panel
-   (claims, requirements, synthesis seam), fixes any FAIL, and attaches a verification
-   summary.
+   deliverable. It runs the checker panel (claims, requirements, synthesis seam) — or its
+   self-check mode without the Agent tool or spawn authorization — fixes any FAIL, and
+   attaches a verification summary.
 
    Close your own report to double-check with a literal line:
 
@@ -67,7 +71,7 @@ check in first.
 
    `yes` means step 5's verifier cold-checked the *final* document, and double-check
    runs only the seam check. `intermediates-only`, `no`, or a missing line means the
-   full panel runs. Emit it honestly. Do not skip the gate; the user relies on it
+   full checks run. Emit it honestly. Do not skip the gate; the user relies on it
    instead of re-checking the work themselves.
 
 For independent sub-parts, spawn multiple Sonnet agents concurrently and merge outputs

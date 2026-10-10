@@ -1,6 +1,6 @@
 ---
 name: fable-mode
-description: "Enforces staged execution discipline on large tasks: a written stage plan, parallel delegation where the runtime supports it, a failable verification check at each stage, and a skeptical self-review before delivery. Trigger when the user explicitly asks OR when the task objectively spans multiple files, sources, or sessions. Do NOT trigger on ordinary multi-step requests that a direct attempt handles fine."
+description: "Enforces staged execution discipline on large tasks: a written stage plan, parallel delegation where the runtime supports it, a failable verification check at each stage, and a skeptical self-review before delivery. Trigger when the user explicitly asks OR when the task objectively spans multiple files, sources, or sessions. Do NOT trigger on ordinary multi-step requests that a direct attempt handles fine (autonomous triggering only; explicit invocation always runs)."
 ---
 
 # Fable Mode
@@ -29,7 +29,8 @@ skill deciding on its own to fire. It never overrides an explicit request. If yo
 the loop is overkill for what was asked, run it anyway and say so afterward.
 
 **Spawn authorization.** Some hosts allow subagents only when the user asks for them, and
-do not count words like "thorough" as asking. In this skill family, spawning — stage
+do not count words like "thorough" as asking (observed: the cloud runtime's Agent tool,
+2026-10-10). In this skill family, spawning — stage
 workers, a fresh verifier, double-check's checker panel — is authorized only when the
 user invoked this skill or a sibling (fable-opus, fable-sonnet, double-check) by slash
 command or by name ("fable mode", "fable on opus", "double check this"). A wording-only
@@ -112,8 +113,10 @@ concurrently. Each subagent should be briefed with: its specific task, what it s
 produce, where to save outputs, and any relevant context from prior stages.
 
 **Wait for every result.** Spawns may run in the background even when foreground is
-requested (observed in the cloud runtime, 2026-10-10). Do not build on, merge, verify,
-or deliver a worker's output until every spawned worker has returned.
+requested (observed in the cloud runtime, 2026-10-10). Do not build on, merge, fix,
+verify, or deliver anything that depends on a spawned agent — worker or verifier — until
+it has returned. If a spawn errors or fails to return, say which, do its part inline, and
+label that part in the delivery.
 
 **Tier routing.** When the Agent tool exposes a `model` parameter, match the worker
 tier to the stage's difficulty, not to habit: Opus for stage work needing strong
@@ -126,12 +129,12 @@ Good delegation: "research X while I do Y", "process these 3 files", "verify thi
 independently". Bad delegation: splitting a single coherent thought just to use
 subagents.
 
-Keep delegation one level deep: a spawned subagent runs its stages sequentially and
-spawns nothing. Nesting multiplies cost and scatters context, and subagents may have no
-Agent tool of their own (cloud runtime, 2026-10-10: Haiku and Sonnet general-purpose
-subagents had none) — so plan all fan-out from the main thread. Allow a second level
-only when a sub-part clearly needs its own fan-out and the subagent actually has an
-Agent tool.
+Keep delegation one level deep by default: a spawned subagent runs its stages
+sequentially and spawns nothing unless its brief explicitly authorizes a second level.
+Nesting multiplies cost and scatters context, and subagents may have no Agent tool of
+their own (cloud runtime, 2026-10-10: Haiku and Sonnet general-purpose subagents had
+none) — so plan all fan-out from the main thread. Authorize a second level only when a
+sub-part clearly needs its own fan-out and the subagent actually has an Agent tool.
 
 **3. Verify with a check that can fail**
 Each stage must define a pass condition that an external artifact satisfies. Acceptable
@@ -161,7 +164,8 @@ For high-stakes deliverables, where the runtime supports subagents and spawning 
 authorized, spawn a fresh verifier agent briefed only with the spec and the artifact —
 not your reasoning — and have it run the checks cold. Fresh eyes cannot inherit your
 blind spots. A Haiku or Sonnet verifier is usually enough; the checks are mechanical by
-design.
+design. Wait for its verdict before step 5, and emit `FINAL-COLD-CHECK: yes` only if it
+returned and checked the version you deliver.
 
 Verify-before-flag and warning batching rules for this step live in the
 execution-guardrails skill and are mandatory.
@@ -185,7 +189,7 @@ FINAL-COLD-CHECK: yes | intermediates-only | no
 `yes` means step 4's fresh verifier cold-checked the FINISHED deliverable — double-check
 then runs the seam check only. `intermediates-only` means verification happened at stage
 level but nothing checked the final write-up. `no` means no cold verification happened.
-Both of those run the full panel. Emit the line honestly: omitting it makes double-check
+Both of those run the full checks. Emit the line honestly: omitting it makes double-check
 repeat a check that already ran, and claiming `yes` falsely removes the only gate.
 
 ---

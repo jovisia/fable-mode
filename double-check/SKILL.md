@@ -1,6 +1,6 @@
 ---
 name: double-check
-description: "Automatic final verification pass on completed deliverables. Runs at the end of every fable-mode run — those skills invoke it before delivery. Also triggers when the user says \"double check this\". Uses a panel of fresh checker agents to verify the finished output — not to redo the task. Any FAIL gets fixed and re-checked before delivery."
+description: "Automatic final verification pass on completed deliverables. Runs at the end of every fable-mode run — those skills invoke it before delivery. Also triggers when the user says \"double check this\". Uses a panel of fresh checker agents when spawning is authorized (otherwise a cold self-check) to verify the finished output — not to redo the task. Any FAIL gets fixed and re-checked before delivery."
 ---
 
 # Double Check
@@ -35,12 +35,14 @@ of your argument). Both live here — there is no companion skill to load.
    check happened.
 2. **On request**: "double check this", "verify this", "make sure this is right".
 
-**Panel or self-check.** Some hosts allow subagents only when the user asks for them.
-Run the checker panel only when this skill was invoked by slash command or by name
-("double check this"), or when the fable run that called it was spawn-authorized (see
-fable-mode's Invocation gate). Otherwise — "verify this", "make sure this is right", a
-fable run without spawn authorization, or the user has reported their usage threshold
-(check in first) — use self-check mode (step 2) and say so.
+**Panel or self-check.** Some hosts allow subagents only when the user asks for them
+(observed: the cloud runtime's Agent tool, 2026-10-10). Run the checker panel only when
+this skill was invoked by slash command or by name ("double check this"), or when the
+fable run that called it was spawn-authorized (see fable-mode's Invocation gate).
+Otherwise — "verify this", "make sure this is right", or a fable run without spawn
+authorization — use self-check mode (step 2) and say so. The usage limit overrides both:
+when the user reports usage at their threshold, check in first; unless they say
+otherwise, use self-check mode.
 
 ## Skip conditions
 
@@ -109,7 +111,8 @@ Tier routing — match the tier to the check, not to the importance of the deliv
 
 **Collect every verdict.** Spawns may run in the background even when foreground is
 requested (observed in the cloud runtime, 2026-10-10). Do not fix, synthesize, or
-deliver until every checker has returned; never act on a partial panel.
+deliver until every checker has returned; never act on a partial panel. If a checker
+errors or fails to return, run its checks in self-check mode and label them so.
 
 **Self-check mode (no Agent tool, or spawning not authorized): degraded single-pass mode.**
 
@@ -189,8 +192,9 @@ invalidates upstream content, fix and re-check that too.
 **One re-check round.** In panel mode, batch every fixed item into ONE fresh re-checker
 brief (Haiku, unless an item needs Sonnet's logic check). If anything fails that round,
 fix it and verify it by cold self-check — re-derive from the artifact, no new spawn —
-and mark those items "self-checked" in the summary. No further spawn rounds. In
-self-check mode, every re-check is a cold re-derivation.
+and mark those items "self-checked" in the summary. No further spawn rounds. An Opus
+adjudicator for a disputed verdict (step 2) sits outside this cap — at most one per
+disputed item. In self-check mode, every re-check is a cold re-derivation.
 
 Deliver only when every item is PASS or explicitly UNVERIFIABLE. Never deliver with an
 unresolved FAIL footnoted.

@@ -45,46 +45,60 @@ named ("fable-opus", "fable on opus") authorizes spawning. A wording-only trigge
 ("stage this on opus", "deep work mode, opus") or an autonomous trigger does not:
 run the fable-mode Core Loop inline on this thread, run double-check in its
 self-check mode, and say so. If this thread is not on Opus, also say the Opus pin
-was skipped and that a slash command gets the pinned run. Usage limit: same as
-fable-mode — at the user's reported threshold, check in first.
+was skipped and that a slash command requests the pinned run. Usage limit: same
+as fable-mode — when the user reports usage at their threshold, check in first.
 
 ## How to run it
 
 1. **The main thread orchestrates.** Subagents may have no Agent tool of their
-   own, so every spawn starts here.
+   own, so every spawn starts here. Without spawn authorization, follow the
+   Invocation gate's inline path instead. Otherwise take the first branch that
+   fits:
    - **Main thread on Opus** (per its own model line) → run fable-mode Core Loop
-     steps 1–4 on this thread at frontier-tier calibration. Spawn stage workers
-     directly from here: `model: "sonnet"` for ordinary stage reasoning,
-     `model: "haiku"` for bulk mechanical work. Opus tokens buy judgment and
-     synthesis, not file-shuffling. Respect any user-set worker cap. Then go to
-     step 3.
-   - **Main thread below Opus, Agent tool offers `"opus"`** → spawn ONE worker
-     with `subagent_type: "general-purpose"` and `model: "opus"`, briefed per
-     step 2.
-   - **No Agent tool** → say so and run the fable-mode Core Loop inline on this
-     thread, sequentially — then go to step 5.
+     steps 1–3, and step 4 without its fresh-verifier paragraph (step 4 below
+     handles the verifier), on this thread at frontier-tier calibration. With the
+     Agent tool, spawn stage workers directly from here: `model: "sonnet"` for
+     ordinary stage reasoning, `model: "haiku"` for bulk mechanical work;
+     without it, run every stage here. Opus tokens buy judgment and synthesis, not
+     file-shuffling. Respect any user-set worker cap. Then go to step 3.
+   - **Main thread on any other model, and the Agent tool offers `"opus"`** →
+     spawn ONE worker with `subagent_type: "general-purpose"` and
+     `model: "opus"`, briefed per step 2.
+   - **Otherwise** (no Agent tool, or no `"opus"` model offered) → say the Opus
+     pin is not available here, run fable-mode Core Loop steps 1–4 inline on
+     this thread, sequentially — then go to step 5.
 
 2. Brief the Opus worker with:
    - the user's task, verbatim
    - the output directory
    - relevant session context
    - any user-set limits (warning threshold, deadline)
-   - from the **fable-mode** skill, copied **verbatim**: Core Loop steps 1, 3 and
-     4, the domain patterns, and the operational rules. Do NOT paste step 2
-     (delegation) or step 5 (the double-check gate).
+   - from the **fable-mode** skill (installed alongside this one), copied
+     **verbatim**: Core Loop steps 1 and 3, step 4 without its fresh-verifier
+     paragraph, the domain patterns, and the operational rules. Do NOT paste
+     step 2 (delegation) or step 5 (the double-check gate).
    - the three execution-guardrails rules, inlined verbatim (below)
    - this instruction: "Run every stage yourself and spawn nothing — the main
-     thread handles verifiers and the delivery gate. Return a report that lists
-     the stages you ran, numbered, each with its artifact and the exact check
-     that verified it, plus every stage you marked unverified and any scope you
-     found but did not build."
+     thread handles verifiers and the delivery gate. If a third replan seems
+     needed, stop and return the ambiguity to the main thread; do not ask the
+     user — this overrides the pasted Replan-budget wording. Return a report
+     that lists the stages you ran, numbered, each with its artifact and the
+     exact check that verified it, plus every stage you marked unverified and
+     any scope you found but did not build."
 
 3. **Wait for every result.** Spawns may run in the background even when
-   foreground is requested. Do not merge, relay, or start the gate until every
-   spawned worker has returned.
+   foreground is requested. Do not merge, fix, relay, or start the gate until
+   every spawned agent — worker or verifier — has returned. If a spawn errors
+   or fails to return, say which, do its part inline, and label that part in
+   the delivery.
 
-4. Relay: the result, every stage marked unverified, and any scope surfaced but
-   not built. If the task is beyond Opus's capability, say so to the user
+4. Relay: the result, every stage marked unverified, any scope surfaced but not
+   built, and any replan ambiguity the worker returned — put that to the user for
+   a decision. For a high-stakes deliverable, where the Agent tool is available,
+   spawn one fresh verifier from this thread on the finished deliverable, briefed
+   only with the spec and the artifact, and wait for its verdict; only then may
+   step 5's line say `yes`. Without the Agent tool, the line cannot say `yes`.
+   If the task is beyond Opus's capability, say so to the user
    plainly — this is the top of the ladder and there is no further tier to hand
    off to. That report must follow verify-before-flag: name what was attempted
    and where it failed, not a vague appeal to difficulty.
@@ -102,8 +116,8 @@ fable-mode — at the user's reported threshold, check in first.
    - `yes` — a fresh verifier checked the FINISHED deliverable cold. Then
      double-check runs the seam check only.
    - `intermediates-only` — verification happened at stage level but nothing
-     checked the final write-up. Full panel runs.
-   - `no` — no cold verification happened. Full panel runs.
+     checked the final write-up. Full checks run.
+   - `no` — no cold verification happened. Full checks run.
 
    Emit the line honestly. A missing or wrong line makes the gate either
    redundant or absent. Do not skip the gate; the user relies on it instead of
@@ -111,9 +125,9 @@ fable-mode — at the user's reported threshold, check in first.
 
 ## Execution guardrails (inline these into every worker briefing)
 
-Copy these three rules into every worker briefing verbatim. Whether a spawned
-subagent can load skills itself varies by surface (cloud subagents could,
-2026-10-10); the inline copy is shorter than a skill load and works everywhere.
+Copy these three rules into every worker briefing verbatim. Cloud subagents
+could load skills (2026-10-10); other surfaces are unchecked. The inline copy is
+shorter than a skill load and works either way.
 
 1. **Verify before flag.** Never report a problem that has not been confirmed
    present by a direct check — grep it, run it, read the source. Absence of
