@@ -1,20 +1,11 @@
 ---
 name: execution-guardrails
-description: >
-  Always-on operational guardrails, model-independent. Apply on EVERY task and
-  EVERY model (Fable, Opus, Sonnet, Haiku, and any future tier) whether or not
-  fable-mode's staged loop is running. Three rules: (1) verify-before-flag —
-  never raise a warning about a problem that hasn't been confirmed present by a
-  direct check; (2) warning batching — accumulate minor concerns and surface
-  them together at a threshold instead of interrupting piecemeal; (3)
-  find-and-replace safety — word-boundary anchoring on sed/substring edits plus
-  a corruption grep afterward. Trigger whenever a response would flag a
-  problem, raise a warning, or edit files with search-and-replace. These are
-  behavioral contracts with the user, not capability aids — they do not depend
-  on model strength.
+description: "Always-on operational guardrails, model-independent. Apply on EVERY task and EVERY model whether or not fable-mode's staged loop is running. Three rules: verify-before-flag, warning batching, and find-and-replace safety. Trigger whenever a response would flag a problem, raise a warning, or edit files with search-and-replace."
 ---
 
 # Execution Guardrails
+
+Family version: v6 (2026-10-10).
 
 Three rules extracted from fable-mode's operational section so they apply everywhere,
 not only inside the staged loop. A frontier model doesn't need a stage map for a simple
@@ -73,6 +64,7 @@ anchor until it is — do not replace-all and hope.
 
 fable-mode's staged loop is optional and gated on task size. These guardrails are not
 optional and not gated. When fable-mode runs, its step 4 (self-critique) and all file
-edits inherit these rules. When fable-mode doesn't run, these rules apply anyway. In v3
-the per-model runners route to frontmatter-defined agents (`agents/*.md`) whose system
-prompts carry these rules inline, because spawned agents cannot see this skill.
+edits inherit these rules. When fable-mode doesn't run, these rules apply anyway. The
+per-model runners — fable-opus and fable-sonnet — inline these rules verbatim into every
+subagent briefing: cloud subagents could load this skill (2026-10-10), other surfaces are
+unchecked, and the inline copy is shorter than a skill load.
