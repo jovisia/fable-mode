@@ -1,5 +1,11 @@
 # fable-mode
 
+> **Current: v6 (2026-10-10).** Live skills: `fable-mode` (root `SKILL.md`),
+> `fable-opus`, `fable-sonnet`, `double-check`, `execution-guardrails`. Ladder: Haiku →
+> Sonnet → Opus → the user. `fable-fable` and the v3 `agents/` routing are superseded —
+> see [SUPERSEDED.md](SUPERSEDED.md). Sections below that describe them are kept as
+> history.
+
 Execution discipline for Claude on large tasks: a written stage map, delegation to
 named agents where the runtime allows, a verification check at every stage that can
 actually **fail**, a skeptical self-review, and a mandatory cold double-check before
