@@ -31,8 +31,8 @@ of your argument). Both live here — there is no companion skill to load.
    duplicate it — run only the seam check (section "Check the synthesis seam") and skip
    the rest. Do not infer this from the narrative: the run closes its report with a
    `FINAL-COLD-CHECK:` line. `yes` → seam check only. `intermediates-only`, `no`, or no
-   line at all → run the full panel. Absence of the line is never evidence that the
-   check happened.
+   line at all → run the full checks (panel or self-check mode, per below). Absence of
+   the line is never evidence that the check happened.
 2. **On request**: "double check this", "verify this", "make sure this is right".
 
 **Panel or self-check.** Some hosts allow subagents only when the user asks for them
