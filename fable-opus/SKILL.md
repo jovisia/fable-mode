@@ -1,63 +1,108 @@
 ---
 name: fable-opus
-description: >
-  Run fable-mode execution discipline on Claude Opus — one rung below Fable 5.1
-  on the escalation ladder. Routes the task to the @fable-orchestrator agent
-  (Opus, Write-less), which stages the work, delegates artifact production to
-  @fable-worker-sonnet / @fable-worker-haiku, and cold-checks deliverables with
-  @fable-verifier. Trigger when the user explicitly asks for
-  thorough/systematic/"deep work" handling on Opus ("fable on
-  opus", "stage this on opus", "deep work mode, opus"). Escalate to fable-fable
-  when the orchestrator reports the task exceeds Opus's ceiling. Do NOT use for
-  ordinary single-pass tasks — and prefer fable-sonnet or fable-haiku when the
-  task doesn't need peak reasoning.
+description: "Run fable-mode execution discipline on Claude Opus — the top of the escalation ladder. Trigger when the user explicitly asks for thorough/systematic/\"deep work\" handling on Opus (\"fable on opus\", \"stage this on opus\", \"deep work mode, opus\"). When a task exceeds Opus's ceiling, report that to the user rather than escalating further."
 ---
 
-# Fable Mode — Opus (v3, agent-routed)
+# Fable Mode — Opus (v5, tool-routed)
 
-v3 change: delegation is enforced structurally, not requested in prose. The
-orchestrator is a real agent definition (`agents/fable-orchestrator.md`) with no
-Write/Edit tool — it cannot do the work inline, so "spawn a worker" stops being
-a suggestion the model can skip. (Change prompted by field report: prose-level
-"you may spawn workers" almost always ran inline on the main thread.)
+v4 removed the named-agent routing from v3. That design depended on custom agent
+definitions (`fable-orchestrator`, `fable-worker-sonnet`, `fable-worker-haiku`,
+`fable-verifier`) that do not exist on skill-only surfaces like Cowork — so every
+invocation fell through to the fallback while the file still described the dead
+path as primary, and the v3 structural guarantee never actually applied. The
+fallback is now the only path, stated directly.
 
-If a task has one obvious correct approach and fits in a single pass, skip this
-loop and do it directly.
+v5 change: this skill is now the top of the ladder. The Fable 5.1 runner was
+removed from the skill set (its own benchmark measured zero correctness delta at
+that tier), so escalation past Opus goes to the user, not to another runner.
+
+## Invocation gate
+
+When the user names this skill — a slash command, or "fable on opus" in words —
+RUN IT. Do not weigh whether the task looks big enough. The user's explicit
+invocation IS the trigger; the cost call is theirs, not yours.
+
+The "skip for single-pass tasks" judgment below governs only autonomous
+triggering — this skill deciding on its own to fire. It never overrides an
+explicit request. If you think the loop is overkill for what was asked, run it
+anyway and say so afterward.
+
+**Autonomous trigger only:** if a task has one obvious correct approach, fits in
+a single pass, and the user did not ask for this skill, do it directly.
 
 ## How to run it
 
-1. Confirm the fable agents are installed (`fable-orchestrator`,
-   `fable-worker-sonnet`, `fable-worker-haiku`, `fable-verifier` appear in the
-   available agent types). If they are not, fall back to the inline method:
-   spawn a general-purpose Opus agent and pass it the Core Loop, domain
-   patterns, and operational rules verbatim from the **fable-mode** skill,
-   which is installed alongside this one. Do NOT try to read
-   `agents/fable-orchestrator.md` — agent files exist only on surfaces that
-   load an `agents/` directory (Claude Code), never on skill-only surfaces
-   (Cowork), which is exactly where this fallback fires.
-2. Spawn **@fable-orchestrator** via the Task tool (`subagent_type:
-   "fable-orchestrator"`). Brief it with: the user's task, the output
-   directory, relevant session context, and any user-set limits (warning
-   threshold, worker cap, deadline).
-3. Do not restate the Core Loop or operational rules in the briefing — the
-   orchestrator's agent definition carries them. Brief the task, not the
-   method.
-4. When it returns, relay the result, every stage it marked unverified, and its
-   recommendations (surfaced scope it did not build). If it reports the task
-   beyond Opus's capability, offer a fable-fable rerun (Fable 5.1) rather than
-   retrying Opus.
-5. **Mandatory delivery gate:** before presenting the result to the user, invoke
-   the **double-check** skill on the finished deliverable. Pass it the
-   orchestrator's closing `FINAL-COLD-CHECK:` line verbatim — `yes` means
-   fable-verifier already checked the finished deliverable and double-check
-   runs the seam check only; `intermediates-only`, `no`, or a missing line
-   means the full panel runs. Do not skip the gate; the user relies on it
-   instead of re-checking the work themselves.
+1. Confirm the runtime exposes the **Agent tool** with `"opus"` among its
+   `model` options. If the Agent tool is absent, say so and run the fable-mode
+   Core Loop inline on this thread, sequentially — then go to step 5.
+
+2. Spawn a worker with `subagent_type: "general-purpose"` and `model: "opus"`.
+   Brief it with:
+   - the user's task, verbatim
+   - the output directory
+   - relevant session context
+   - any user-set limits (warning threshold, worker cap, deadline)
+   - the Core Loop, domain patterns, and operational rules copied **verbatim**
+     from the **fable-mode** skill, which is installed alongside this one
+   - the three execution-guardrails rules, inlined verbatim (below) — a spawned
+     subagent cannot load skills
+
+3. Instruct the worker to delegate its own artifact production one level down:
+   `model: "sonnet"` for ordinary stage reasoning, `model: "haiku"` for bulk
+   mechanical work. Opus tokens buy judgment, not file-shuffling. Keep
+   delegation one level deep — workers do not spawn workers.
+
+4. When it returns, relay: the result, every stage it marked unverified, and any
+   scope it surfaced but did not build. If it reports the task beyond Opus's
+   capability, say so to the user plainly — this is the top of the ladder and
+   there is no further tier to hand off to. That report must follow
+   verify-before-flag: name what was attempted and where it failed, not a vague
+   appeal to difficulty.
+
+5. **Mandatory delivery gate:** before presenting anything to the user, invoke
+   the **double-check** skill on the finished deliverable.
+
+   Close your own report to double-check with a literal line:
+
+   ```
+   FINAL-COLD-CHECK: yes | intermediates-only | no
+   ```
+
+   - `yes` — a fresh verifier checked the FINISHED deliverable cold. Then
+     double-check runs the seam check only.
+   - `intermediates-only` — verification happened at stage level but nothing
+     checked the final write-up. Full panel runs.
+   - `no` — no cold verification happened. Full panel runs.
+
+   Emit the line honestly. A missing or wrong line makes the gate either
+   redundant or absent. Do not skip the gate; the user relies on it instead of
+   re-checking the work themselves.
+
+## Execution guardrails (inline these into every worker briefing)
+
+A spawned subagent cannot load the execution-guardrails skill. Copy these three
+rules into every briefing verbatim.
+
+1. **Verify before flag.** Never report a problem that has not been confirmed
+   present by a direct check — grep it, run it, read the source. Absence of
+   evidence is not the finding. Web silence is never grounds for a warning
+   about the user's own firsthand facts.
+2. **Warning threshold.** Batch minor concerns. At three (or the user's set
+   number), stop and surface all at once. A concern that independently meets
+   the verify-before-flag bar and is material on its own does not wait.
+3. **Find-and-replace safety.** Anchor sed/substring replaces on word
+   boundaries (`\bword\b`), never bare. Grep for corrupted compound words after
+   every pass.
 
 ## Known limitation
 
-Write-removal closes the front door, not the side door: the orchestrator keeps
-Bash for running verification commands, and Bash can technically create files.
-Its definition forbids that use; if audits show it writing through Bash, the
-next tightening is removing Bash and routing even check-execution through
-workers (cost: one extra hop per check).
+Delegation is requested in prose, not enforced structurally. A general-purpose
+worker has Write and Edit, so nothing stops it doing the work inline instead of
+spawning its own workers — the exact failure v3 tried to fix by removing Write
+from a named orchestrator agent. That fix required custom agent definitions this
+surface cannot load, so it never took effect.
+
+Available tightening if audits show workers running everything inline: require
+the stage plan as a numbered list with one named artifact per stage in the
+returned report, so an inline run is visible in the output rather than silent.
+Prose-level "you may spawn workers" reliably does not survive contact.
