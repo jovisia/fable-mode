@@ -1,3 +1,4 @@
 RockyVoice/
 .claude/
 *.skill
+__pycache__/
